@@ -1,0 +1,45 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+        <style>
+            body {
+              margin: 0;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100vh;
+            }
+            #chart {
+              width:100%;
+              margin-top: auto;
+              max-width: 1080px;
+              height: auto;
+            }
+            svg {
+              width: 100%;
+              height: auto; /* Ensure aspect ratio is maintained */
+            }
+            text {
+                font-size: 35px; /* Adjust this value to make labels larger */
+            }
+            /* Tooltip styling */
+            .tooltip {
+                position: absolute;
+                background-color: white;
+                border: 1px solid #ddd;
+                padding: 5px;
+                font-size: 20px;
+                pointer-events: none; /* Prevent tooltip from interfering with mouse events */
+                opacity: 0; /* Initially hidden */
+                transition: opacity 0.2s ease;
+            }
+          </style>
+    </head>
+    <body>
+        <div id="chart"></div>
+        <div id="tooltip" class="tooltip"></div> <!-- Tooltip div -->
+        <script src="chart.js"></script>
+    </body>
+</html>
