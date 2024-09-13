@@ -3,9 +3,17 @@
 // Read the data from the json api, and create the chord chart
 url = "https://hashi-explorer.xyz/iframe/api/query"
 
-fetch(url).then(response => response.json()).then(data => {
-    loadChordChart(data);
-});
+// read odata from querystring if present, and use it instead of the api
+const urlParams = new URLSearchParams(window.location.search);
+const dataParam = urlParams.get('data');
+
+if (dataParam) {
+    loadChordChart(JSON.parse(dataParam));
+} else {
+    fetch(url).then(response => response.json()).then(data => {
+        loadChordChart(data);
+    });
+}
 
 function beautifyTimeDiff(msDiff) {
     const seconds = Math.floor(msDiff / 1000);
@@ -44,7 +52,10 @@ function loadChordChart(odata){
     data = [];
     for (var i = 0; i < odata.length; i++) {
         value = 1; //odata[i].value;
-        age = Math.floor((new Date() - new Date(odata[i].last_agreed_block_time)));
+        last_agreed_block_time = new Date().toISOString();
+        if (typeof odata[i].last_agreed_block_time !== 'undefined')
+            last_agreed_block_time = odata[i].last_agreed_block_time;
+        age = Math.floor((new Date() - new Date(last_agreed_block_time)));
         if (age > THRESHOLD) continue;
         data.push({source: beatifyChainName(odata[i].source_chain), target: beatifyChainName(odata[i].target_chain), value: value, age: age});
     }
