@@ -1,18 +1,47 @@
 // Description: This file contains the code to create the chord chart.
 
 // Read the data from the json api, and create the chord chart
-url = "https://hashi-explorer.xyz/iframe/api/query"
+const apiUrl = "https://hashi-explorer.xyz/iframe/api/query";
 
-// read odata from querystring if present, and use it instead of the api
+// Read odata from querystring if present, and use it instead of the api
 const urlParams = new URLSearchParams(window.location.search);
 const dataParam = urlParams.get('data');
 
+let originalData = []; // To store the fetched data
+let currentType = 'mainnet'; // Default view
+
 if (dataParam) {
-    loadChordChart(JSON.parse(dataParam));
+    try {
+        originalData = JSON.parse(dataParam);
+        loadChordChart();
+    } catch (e) {
+        console.error('Invalid JSON in data parameter:', e);
+        displayError('Invalid data provided.');
+    }
 } else {
-    fetch(url).then(response => response.json()).then(data => {
-        loadChordChart(data);
-    });
+    fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+            originalData = data;
+            loadChordChart();
+        })
+        .catch(error => {
+            console.error('Error fetching data:', error);
+            displayError('Failed to fetch data.');
+        });
+}
+
+function displayError(message) {
+    d3.select("#chart").append("svg")
+        .attr("width", 640)
+        .attr("height", 480)
+        .append("text")
+        .attr("x", 320)
+        .attr("y", 240)
+        .attr("text-anchor", "middle")
+        .attr("font-size", "24px")
+        .attr("fill", "red")
+        .text(message);
 }
 
 function beautifyTimeDiff(msDiff) {
@@ -31,51 +60,90 @@ function beautifyTimeDiff(msDiff) {
     if (weeks < 5) return `~ ${weeks} week${weeks !== 1 ? 's' : ''} ago`;
     if (months < 12) return `~ ${months} month${months !== 1 ? 's' : ''} ago`;
     return `~ ${years} year${years !== 1 ? 's' : ''} ago`;
-  }
+}
 
-  function beatifyChainName(chain){
-    if (chain == "bnb") return "BNB Chain";
-    if (chain == "gnosis") return "Gnosis Chain";
-    if (chain == "polygon") return "Polygon";
-    if (chain == "base") return "Base";
-    if (chain == "optimism") return "Optimism";
-    if (chain == "arbitrum") return "Arbitrum";
-    return chain;
-  }
-  
-  
+function beautifyChainName(chain){
+    const chainMap = {
+        "bnb": "BNB Chain",
+        "gnosis": "Gnosis Chain",
+        "polygon": "Polygon",
+        "base": "Base",
+        "optimism": "Optimism",
+        "arbitrum": "Arbitrum",
+        "ethereum_sepolia": "Ethereum Sepolia",
+        "unichain_sepolia": "Unichain Testnet"
+    };
+    return chainMap[chain] || chain;
+}
 
+function loadChordChart() {
+    // Initial rendering based on the default type
+    renderChart(currentType);
+    
+    // Add event listener to the switch
+    const viewSwitch = document.getElementById('viewSwitch');
+    viewSwitch.addEventListener('change', () => {
+        currentType = viewSwitch.checked ? 'testnet' : 'mainnet';
+        renderChart(currentType);
+    });
+}
 
-function loadChordChart(odata){
+function renderChart(type) {
+    // Clear any existing SVG
+    d3.select("#chart").selectAll("svg").remove();
+
     const THRESHOLD = 1000 * 60 * 60 * 24 * 7 * 6; // 6 weeks
-    // convert odata to data
-    data = [];
-    for (var i = 0; i < odata.length; i++) {
-        value = 1; //odata[i].value;
-        last_agreed_block_time = new Date().toISOString();
-        if (typeof odata[i].last_agreed_block_time !== 'undefined')
-            last_agreed_block_time = odata[i].last_agreed_block_time;
-        age = Math.floor((new Date() - new Date(last_agreed_block_time)));
-        if (age > THRESHOLD) continue;
-        data.push({source: beatifyChainName(odata[i].source_chain), target: beatifyChainName(odata[i].target_chain), value: value, age: age});
+
+    // Process originalData to compute type if not already present
+    const processedData = originalData.map(item => {
+        let type = "mainnet";
+        if (
+            (item.source_chain && item.source_chain.includes("_") && !item.source_chain.includes("_mainnet")) ||
+            (item.target_chain && item.target_chain.includes("_") && !item.target_chain.includes("_mainnet"))
+        ) {
+            type = "testnet";
+        }
+        let lastAgreedBlockTime = item.last_agreed_block_time || new Date().toISOString();
+        let age = Date.now() - new Date(lastAgreedBlockTime).getTime();
+        return {
+            source: beautifyChainName(item.source_chain),
+            target: beautifyChainName(item.target_chain),
+            type: type,
+            value: 1, // Assuming each connection has a value of 1
+            age: age
+        };
+    }).filter(d => d.age <= THRESHOLD && d.type === type); // Filter based on age and current type
+
+    // If no data is available for the selected type, display a message
+    if (processedData.length === 0) {
+        d3.select("#chart").append("svg")
+            .attr("width", 640)
+            .attr("height", 480)
+            .append("text")
+            .attr("x", 320)
+            .attr("y", 240)
+            .attr("text-anchor", "middle")
+            .attr("font-size", "24px")
+            .text(`No ${capitalize(type)} data available`);
+        return;
     }
 
-    //data.push({source: "BNB Chain", target: "Gnosis Chain", value: 1, age: 1000*3600});
-    //data.push({target: "BNB Chain", source: "Gnosis Chain", value: 1, age: 0});
+    // Continue with chord chart creation
+    const data = processedData;
 
     function getAge(source, destination){
-        for (var i = 0; i < data.length; i++) {
-            if (data[i].source == source && data[i].target == destination){
+        for (let i = 0; i < data.length; i++) {
+            if (data[i].source === source && data[i].target === destination){
                 return beautifyTimeDiff(data[i].age);
             }
         }
-        return -1;
+        return 'Unknown';
     }
 
     function opacityFor(source, destination){
-        for (var i = 0; i < data.length; i++) {
-            if (data[i].source == source && data[i].target == destination){
-                age = data[i].age;
+        for (let i = 0; i < data.length; i++) {
+            if (data[i].source === source && data[i].target === destination){
+                const age = data[i].age;
                 if (age < 1000 * 60 * 15) return 0.75; // up to 15 minutes
                 if (age < 1000 * 60 * 60) return 0.65; // up to 1 hour
                 if (age < 1000 * 60 * 60 * 6) return 0.55; // up to 6 hours
@@ -91,6 +159,7 @@ function loadChordChart(odata){
 
     const width = 1080; // Base width for calculations
     const height = width; // Maintain square aspect ratio
+    const padding = 150; // Reduced padding to minimize empty space while preventing label cropping
     const innerRadius = Math.min(width, height) * 0.5 - 20;
     const outerRadius = innerRadius + 6;
 
@@ -102,7 +171,7 @@ function loadChordChart(odata){
       matrix[index.get(source)][index.get(target)] += value;
     }
 
-    const chord = d3.chordDirected()
+    const chordGenerator = d3.chordDirected()
       .padAngle(12 / innerRadius)
       .sortSubgroups(d3.descending)
       .sortChords(d3.descending);
@@ -111,24 +180,26 @@ function loadChordChart(odata){
       .innerRadius(innerRadius)
       .outerRadius(outerRadius);
     
-      const ribbon = d3.ribbonArrow()
-  .radius(innerRadius - 0.5)
-  .padAngle(0.01) // Very small padding, arrows almost touch
-  .headRadius(innerRadius * 0.1); // Moderately pointed arrowhead for a balanced look
+    const ribbon = d3.ribbonArrow()
+      .radius(innerRadius - 0.5)
+      .padAngle(0.01) // Very small padding, arrows almost touch
+      .headRadius(innerRadius * 0.1); // Moderately pointed arrowhead for a balanced look
 
     const colors = d3.schemeCategory10;
 
-    const formatValue = x => `${x.toFixed(0)}B`;
-
     const svg = d3.select("#chart").append("svg")
-    .attr("viewBox", [-width / 2 - 200, -height / 2 - 200, width + 400, height + 400].join(' ')) // Added extra padding
-    .attr("preserveAspectRatio", "xMidYMid meet") // Keeps aspect ratio when resizing
-      //.attr("style", "font: 10px sans-serif;");
+        .attr("viewBox", [
+            -width / 2 - padding, 
+            -height / 2 - padding, 
+            width + padding * 2, 
+            height + padding * 2
+        ].join(' '))
+        .attr("preserveAspectRatio", "xMidYMid meet");
 
     // Create the tooltip reference
     const tooltip = d3.select("#tooltip");
 
-    const chords = chord(matrix);
+    const chords = chordGenerator(matrix);
 
     // Draw ribbons (the arcs that connect groups)
     svg.append("g")
@@ -136,12 +207,12 @@ function loadChordChart(odata){
         .data(chords)
         .join("path")
         .attr("d", ribbon)
-        .attr("fill-opacity", function (d){ return opacityFor(names[d.source.index], names[d.target.index]) })
-        .attr("fill", function(d){ return colors[d.source.index] })
+        .attr("fill-opacity", d => opacityFor(names[d.source.index], names[d.target.index]))
+        .attr("fill", d => colors[d.source.index % colors.length]) // Ensure color index is within bounds
         .style("mix-blend-mode", "multiply")
         .on("mouseover", (event, d) => {
             tooltip.style("opacity", 1) // Show tooltip
-                .html(`The last <b>${names[d.source.index]}</b> block header was propagated on <b>${names[d.target.index]}</b> `+getAge(names[d.source.index], names[d.target.index])) // Update tooltip content
+                .html(`The last <b>${names[d.source.index]}</b> block header was propagated on <b>${names[d.target.index]}</b> ${getAge(names[d.source.index], names[d.target.index])}`) // Update tooltip content
                 .style("left", (event.pageX + 10) + "px") // Position tooltip near mouse
                 .style("top", (event.pageY - 10) + "px");
 
@@ -157,9 +228,7 @@ function loadChordChart(odata){
 
             d3.select(event.target)
                 .attr("fill-opacity", opacityFor(names[d.source.index], names[d.target.index])); // Reset the opacity of the arrow
-        })
-        //.append("title")
-        //.text(d => `${names[d.source.index]} owes ${names[d.target.index]} ${formatValue(d.source.value)}`);
+        });
 
     // Draw groups (the outer arc for each group)
     const group = svg.append("g")
@@ -169,17 +238,22 @@ function loadChordChart(odata){
 
     group.append("path")
       .attr("d", arc)
-      .attr("fill", function(d){ return colors[d.index] })
+      .attr("fill", d => colors[d.index % colors.length])
       .attr("stroke", "#fff");
 
     group.append("text")
       .attr("dy", -3)
       .attr("transform", d => {
-        const angle = (d.startAngle + d.endAngle) / 2;
-        const rotate = angle * 180 / Math.PI - 90;
-        return `rotate(${rotate}) translate(${outerRadius + 10}) ${angle > Math.PI ? "rotate(180)" : ""}`;
+          const angle = (d.startAngle + d.endAngle) / 2;
+          const rotate = angle * 180 / Math.PI - 90;
+          return `rotate(${rotate}) translate(${outerRadius + 15}) ${angle > Math.PI ? "rotate(180)" : ""}`; // Adjusted translation to fit within reduced padding
       })
-      .attr("text-anchor", d => (d.startAngle + d.endAngle) / 2 > Math.PI ? "end" : null)
+      .attr("text-anchor", d => (d.startAngle + d.endAngle) / 2 > Math.PI ? "end" : "start")
+      .attr("font-size", "16px") // Ensure readability
       .text(d => names[d.index]);
+}
 
+function capitalize(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
 }

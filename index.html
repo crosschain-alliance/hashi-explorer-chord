@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
     <head>
         <meta charset="UTF-8">
@@ -7,13 +8,67 @@
             body {
               margin: 0;
               display: flex;
-              justify-content: center;
+              flex-direction: column;
+              align-items: center;
               height: 100vh;
               overflow: hidden;
+              background-color: #f5f5f5; /* Optional: Improve background aesthetics */
+              font-family: Inter, Helvetica, Arial, sans-serif;
+            }
+            /* Container for the switch */
+            .switch-container {
+                margin: 20px 0 20px 0; /* Reduced bottom margin to minimize space between switch and chart */
+                display: flex;
+                align-items: center;
+                font-size: 16px;
+            }
+            /* Switch styling */
+            .switch {
+                position: relative;
+                display: inline-block;
+                width: 60px;
+                height: 34px;
+                margin: 0 15px; /* Reduced horizontal margin to decrease space between switch and labels */
+            }
+            .switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+            .slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: #ccc;
+                transition: 0.4s;
+                border-radius: 34px;
+            }
+            .slider:before {
+                position: absolute;
+                content: "";
+                height: 26px;
+                width: 26px;
+                left: 4px;
+                bottom: 4px;
+                background-color: white;
+                transition: 0.4s;
+                border-radius: 50%;
+            }
+            input:checked + .slider {
+                background-color: #66bb6a;
+            }
+            input:focus + .slider {
+                box-shadow: 0 0 1px #66bb6a;
+            }
+            input:checked + .slider:before {
+                transform: translateX(26px);
             }
             #chart {
-              width: 640px;
-              margin-top: 0px;
+              width: 90vw;
+              max-width: 1200px;
               height: auto;
             }
             svg {
@@ -21,24 +76,36 @@
               height: auto; /* Ensure aspect ratio is maintained */
             }
             text {
-                font-family: Inter, Helvetica, Arial, sans-serif;
-                font-size: 30px; /* Adjust this value to make labels larger */
+                font-size: 16px; /* Adjusted for better readability */
             }
             /* Tooltip styling */
             .tooltip {
                 position: absolute;
-                background-color: white;
-                border: 1px solid #ddd;
-                padding: 5px;
+                background-color: rgba(255, 255, 255, 0.95);
+                border: 1px solid #aaa;
+                padding: 10px;
                 font-size: 13px;
-                font-family: Inter, Helvetica, Arial, sans-serif;
                 pointer-events: none; /* Prevent tooltip from interfering with mouse events */
                 opacity: 0; /* Initially hidden */
                 transition: opacity 0.2s ease;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+                border-radius: 5px;
+                font-family: Inter, Helvetica, Arial, sans-serif;
             }
-          </style>
+        </style>
     </head>
     <body>
+        <!-- Switch Container -->
+        <div class="switch-container">
+            <span>Mainnet</span>
+            <label class="switch">
+                <input type="checkbox" id="viewSwitch">
+                <span class="slider"></span>
+            </label>
+            <span>Testnet</span>
+        </div>
+        
+        <!-- Chart and Tooltip -->
         <div id="chart"></div>
         <div id="tooltip" class="tooltip"></div> <!-- Tooltip div -->
         <script src="chart.js"></script>
