@@ -71,7 +71,8 @@ function beautifyChainName(chain){
         "optimism": "Optimism",
         "arbitrum": "Arbitrum",
         "ethereum_sepolia": "Ethereum Sepolia",
-        "unichain_sepolia": "Unichain Testnet"
+        "unichain_sepolia": "Unichain Testnet",
+        "gnosis_chiado": "Gnosis Chiado"
     };
     return chainMap[chain] || chain;
 }
